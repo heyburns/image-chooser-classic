@@ -65,9 +65,13 @@ class BaseChooser(PreviewImage):
     def IS_CHANGED(cls, id, **kwargs):
         mode = kwargs.get("mode", ["Always pause"])
         node_id = str(id[0])
-        if mode[0] != "Repeat last selection" or node_id not in cls._last_ic:
+        if mode[0] == "Repeat last selection" and node_id in cls._last_ic:
+            return cls._last_ic[node_id]
+        elif mode[0] == "Always pause":
+            return 0.0
+        else:
             cls._last_ic[node_id] = random.random()
-        return cls._last_ic[node_id]
+            return cls._last_ic[node_id]
 
     def chooser_type(self) -> str:
         return "single"
@@ -136,7 +140,8 @@ class BaseChooser(PreviewImage):
             selection = list(range(start, batch))
         elif mode == "Only pause if batch" and batch <= 1:
             selection = [0]
-
+        elif mode == "Always pause":
+            selection = None
         preview_payload = images_tensor
         ret = self.save_images(images=preview_payload, **kwargs)
 
