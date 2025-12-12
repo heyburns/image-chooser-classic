@@ -141,6 +141,7 @@ class BaseChooser(PreviewImage):
         elif mode == "Only pause if batch" and batch <= 1:
             selection = [0]
         elif mode == "Always pause":
+            MessageBroker.set_last_selection(unique_id, None)
             selection = None
         preview_payload = images_tensor
         ret = self.save_images(images=preview_payload, **kwargs)
