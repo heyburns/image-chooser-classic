@@ -61,14 +61,20 @@ class BaseChooser(PreviewImage):
             "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO", "id": "UNIQUE_ID"},
         }
 
+    @classmethod
     def IS_CHANGED(cls, id, **kwargs):
         mode = kwargs.get("mode", ["Always pause"])
-        node_id = str(id[0])
-        if mode[0] == "Repeat last selection" and node_id in cls._last_ic:
-            return cls._last_ic[node_id]
-        else:
-            cls._last_ic[node_id] = random.random()
-            return cls._last_ic[node_id]
+        unique_id = str(id[0])
+
+        if mode[0] == "Always pause":
+            cls._last_ic[unique_id] = random.random()
+            return cls._last_ic[unique_id]
+
+        if mode[0] == "Repeat last selection" and unique_id in cls._last_ic:
+            return cls._last_ic[unique_id]
+
+        cls._last_ic[unique_id] = random.random()
+        return cls._last_ic[unique_id]
 
     def chooser_type(self) -> str:
         return "single"
@@ -84,9 +90,9 @@ class BaseChooser(PreviewImage):
         mode = kwargs.pop("mode", ["Always pause"])[0]
 
         unique_id = str(id[0])
-        display_id = unique_id.split(":", 1)[0]
-        MessageBroker.bind_display_id(display_id, unique_id)
+        display_id = unique_id
 
+        MessageBroker.bind_display_id(display_id, unique_id)
         stash = MessageBroker.stash_for(unique_id)
 
         doing_segs = "segs" in kwargs
