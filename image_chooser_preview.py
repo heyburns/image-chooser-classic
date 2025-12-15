@@ -61,14 +61,11 @@ class BaseChooser(PreviewImage):
             "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO", "id": "UNIQUE_ID"},
         }
 
-    @classmethod
     def IS_CHANGED(cls, id, **kwargs):
         mode = kwargs.get("mode", ["Always pause"])
         node_id = str(id[0])
         if mode[0] == "Repeat last selection" and node_id in cls._last_ic:
             return cls._last_ic[node_id]
-        elif mode[0] == "Always pause":
-            return 0.0
         else:
             cls._last_ic[node_id] = random.random()
             return cls._last_ic[node_id]
@@ -94,7 +91,7 @@ class BaseChooser(PreviewImage):
 
         doing_segs = "segs" in kwargs
 
-        if "images" in kwargs:
+        if "images" in kwargs and kwargs["images"] is not None:
             stash["images"] = kwargs["images"]
             stash["latents"] = kwargs.get("latents")
             stash["masks"] = kwargs.get("masks")
@@ -106,7 +103,7 @@ class BaseChooser(PreviewImage):
             kwargs["segs"] = stash.get("segs")
 
         if kwargs.get("images") is None:
-            return (None, None, None, "", None)
+            raise InterruptProcessingException()
 
         images_in = kwargs.pop("images")
         latents_in = kwargs.pop("latents", None)
@@ -143,6 +140,7 @@ class BaseChooser(PreviewImage):
         elif mode == "Always pause":
             MessageBroker.set_last_selection(unique_id, None)
             selection = None
+
         preview_payload = images_tensor
         ret = self.save_images(images=preview_payload, **kwargs)
 
