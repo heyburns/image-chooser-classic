@@ -64,21 +64,7 @@ class BaseChooser(PreviewImage):
 
     @classmethod
     def IS_CHANGED(cls, id, **kwargs):
-        mode = kwargs.get("mode", ["Always pause"])
         unique_id = str(id[0])
-
-        if cls._must_rerun.get(unique_id, False):
-            cls._last_ic[unique_id] = random.random()
-            cls._must_rerun.pop(unique_id, None)
-            return cls._last_ic[unique_id]
-
-        if mode[0] == "Always pause":
-            cls._last_ic[unique_id] = random.random()
-            return cls._last_ic[unique_id]
-
-        if mode[0] == "Repeat last selection" and unique_id in cls._last_ic:
-            return cls._last_ic[unique_id]
-
         cls._last_ic[unique_id] = random.random()
         return cls._last_ic[unique_id]
 
@@ -176,10 +162,19 @@ class BaseChooser(PreviewImage):
                 selection = MessageBroker.wait_for_message(unique_id, as_list=True)
             except Cancelled:
                 MessageBroker.set_last_selection(unique_id, None)
-                stash.clear()
+                try:
+                    stash.clear()
+                except Exception:
+                    for k in ("images", "latents", "masks", "segs"):
+                        stash.pop(k, None)
                 BaseChooser._last_ic.pop(unique_id, None)
                 BaseChooser._must_rerun[unique_id] = True
+                try:
+                    MessageBroker.unbind_display_id(display_id)
+                except Exception:
+                    pass
                 raise InterruptProcessingException()
+
 
         selection = [idx for idx in selection if idx >= 0]
         MessageBroker.set_last_selection(unique_id, selection)
@@ -187,13 +182,18 @@ class BaseChooser(PreviewImage):
         BaseChooser._must_rerun.pop(unique_id, None)
         BaseChooser._last_ic.pop(unique_id, None)
 
-        return self._build_outputs(
-            images_tensor=images_tensor,
-            latents_tensor=latents_tensor,
-            masks_tensor=masks_tensor,
-            selection=selection,
-        )
-        return (None, None, None, ",".join(str(i) for i in selection), segs_out)
+        if doing_segs and segs_in:
+            segs_out = (
+                segs_in[0][0],
+                [segs_in[0][1][i] for i in selection if i < len(segs_in[0][1])],
+            )
+            return (
+                None,
+                None,
+                None,
+                ",".join(str(i) for i in selection),
+                segs_out,
+            )
 
         return self._build_outputs(
             images_tensor=images_tensor,
