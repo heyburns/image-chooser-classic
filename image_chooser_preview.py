@@ -33,6 +33,7 @@ class BaseChooser(PreviewImage):
     FUNCTION = "func"
 
     _last_ic: Dict[str, float] = {}
+    _must_rerun: Dict[str, bool] = {}
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -65,6 +66,11 @@ class BaseChooser(PreviewImage):
     def IS_CHANGED(cls, id, **kwargs):
         mode = kwargs.get("mode", ["Always pause"])
         unique_id = str(id[0])
+
+        if cls._must_rerun.get(unique_id, False):
+            cls._last_ic[unique_id] = random.random()
+            cls._must_rerun.pop(unique_id, None)
+            return cls._last_ic[unique_id]
 
         if mode[0] == "Always pause":
             cls._last_ic[unique_id] = random.random()
@@ -169,17 +175,25 @@ class BaseChooser(PreviewImage):
             try:
                 selection = MessageBroker.wait_for_message(unique_id, as_list=True)
             except Cancelled:
+                MessageBroker.set_last_selection(unique_id, None)
+                stash.clear()
+                BaseChooser._last_ic.pop(unique_id, None)
+                BaseChooser._must_rerun[unique_id] = True
                 raise InterruptProcessingException()
 
         selection = [idx for idx in selection if idx >= 0]
         MessageBroker.set_last_selection(unique_id, selection)
 
-        if doing_segs and segs_in:
-            segs_out = (
-                segs_in[0][0],
-                [segs_in[0][1][i] for i in selection if i < len(segs_in[0][1])],
-            )
-            return (None, None, None, ",".join(str(i) for i in selection), segs_out)
+        BaseChooser._must_rerun.pop(unique_id, None)
+        BaseChooser._last_ic.pop(unique_id, None)
+
+        return self._build_outputs(
+            images_tensor=images_tensor,
+            latents_tensor=latents_tensor,
+            masks_tensor=masks_tensor,
+            selection=selection,
+        )
+        return (None, None, None, ",".join(str(i) for i in selection), segs_out)
 
         return self._build_outputs(
             images_tensor=images_tensor,
