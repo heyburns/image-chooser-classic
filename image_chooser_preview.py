@@ -65,6 +65,9 @@ class BaseChooser(PreviewImage):
     @classmethod
     def IS_CHANGED(cls, id, **kwargs):
         unique_id = str(id[0])
+        if MessageBroker.get_last_selection(unique_id) is None:
+            cls._last_ic[unique_id] = random.random()
+            return cls._last_ic[unique_id]
         cls._last_ic[unique_id] = random.random()
         return cls._last_ic[unique_id]
 
@@ -76,6 +79,16 @@ class BaseChooser(PreviewImage):
 
     def notify_frontend(self, context: Dict[str, object]) -> None:
         PromptServer.instance.send_sync("cg-image-chooser-classic-open", context)
+
+    @classmethod
+    def clear_waiting_state(cls, unique_id: str):
+        try:
+            if unique_id in cls._waiting:
+                del cls._waiting[unique_id]
+            if unique_id in cls._waiting_events:
+                del cls._waiting_events[unique_id]
+        except Exception:
+            pass
 
     def func(self, id, **kwargs):
         count = int(kwargs.pop("count", [1])[0])
@@ -171,6 +184,10 @@ class BaseChooser(PreviewImage):
                 BaseChooser._must_rerun[unique_id] = True
                 try:
                     MessageBroker.unbind_display_id(display_id)
+                except Exception:
+                    pass
+                try:
+                    MessageBroker.clear_waiting_state(unique_id)
                 except Exception:
                     pass
                 raise InterruptProcessingException()
