@@ -629,21 +629,33 @@ function applyLayout(node, detail, info, options = {}) {
     grid.style.gridAutoRows = formatPx(cellHeight);
     grid.style.columnGap = formatPx(columnGap);
     grid.style.rowGap = formatPx(rowGap);
-    grid.style.width = formatPx(usedWidth);
+    grid.style.width = "100%";
     grid.style.height = formatPx(usedHeight);
     grid.style.maxHeight = formatPx(usedHeight);
     grid.style.maxWidth = formatPx(usedWidth);
-    grid.style.minWidth = formatPx(usedWidth);
-    grid.style.minHeight = formatPx(usedHeight);
+    grid.style.minWidth = "0";
+    grid.style.minHeight = "0";
+    grid.style.overflow = "hidden";
     grid.style.margin = "0 auto";
     grid.style.justifyContent = "center";
     grid.style.alignContent = "center";
     grid.style.transform = "scale(1)";
 
+    if (stage) stage.style.overflow = "hidden";
     container.style.minHeight = "0px";
+    // In app mode (ComfyUI "app view"), ComfyUI mounts our element inside a
+    // WidgetDOM wrapper div (class "flex flex-col *:flex-1") that has no
+    // overflow:hidden. Propagate the hidden overflow upward whenever the
+    // element has been mounted into a parent so that wrapper can never scroll.
+    if (container.parentElement instanceof HTMLElement) {
+        container.parentElement.style.overflow = "hidden";
+    }
 
     if (info.domWidget) {
-        info.domWidget.computeSize = () => [layout.preferredWidth, layout.preferredHeight];
+        // Always report the current node width back unchanged so ComfyUI never
+        // uses computeSize to resize the node horizontally.  Only the height
+        // hint is ours to control.
+        info.domWidget.computeSize = (width) => [width, layout.preferredHeight];
     }
 
     if (!node._ic_userSized && options.allowSizeUpdate !== false) {
@@ -712,7 +724,6 @@ function renderChooser(node, detail) {
     rerunBtn.textContent = "Rerun";
     rerunBtn.addEventListener("click", () => {
         send_cancel();
-        clearSelection(node);
         app.queuePrompt(0, 1);
     });
 
@@ -808,7 +819,6 @@ function sendSelection(node) {
     if (sel.length === 0) return;
     sel.sort((a, b) => a - b);
     send_message(target, sel.join(","));
-    clearSelection(node);
 }
 
 function handleEvent(detail) {
